@@ -88,4 +88,7 @@ RUN chmod +x /test/run_integration_tests.sh
 # ---- Clean up build artifacts to reduce image size ----
 RUN rm -rf /build
 
+# Run as non-root user (postgres is provided by the base image)
+USER postgres
+
 ENTRYPOINT ["/test/run_integration_tests.sh"]
