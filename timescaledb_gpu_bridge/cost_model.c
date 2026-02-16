@@ -133,8 +133,8 @@ gpu_sum_opcode_costs(Expr *expr)
 			ListCell *lc;
 			foreach (lc, agg->args)
 			{
-				TargetEntry *te = (TargetEntry *) lfirst(lc);
-				cost += gpu_sum_opcode_costs(te->expr);
+				TargetEntry *tle = (TargetEntry *) lfirst(lc);
+				cost += gpu_sum_opcode_costs(tle->expr);
 			}
 			return cost;
 		}

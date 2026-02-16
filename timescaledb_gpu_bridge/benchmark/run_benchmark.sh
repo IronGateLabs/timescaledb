@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
         --check-regression) CHECK_REGRESSION=true; shift;;
         --db)           DB_NAME="$2"; shift 2;;
         --skip-generate) SKIP_GENERATE=true; shift;;
-        --tolerance)    TOLERANCE="$2"; shift 2;;
+        --tolerance)    TOLERANCE="$2"; export TOLERANCE; shift 2;;
         *)              echo "Unknown option: $1"; exit 1;;
     esac
 done
@@ -99,8 +99,7 @@ run_query() {
     local start_time end_time elapsed_ms
     start_time=$(date +%s%N)
 
-    local output
-    output=$(psql -d "${DB_NAME}" -c "${setting}" -f "${query_file}" 2>&1) || true
+    psql -d "${DB_NAME}" -c "${setting}" -f "${query_file}" >/dev/null 2>&1 || true
 
     end_time=$(date +%s%N)
     elapsed_ms=$(( (end_time - start_time) / 1000000 ))
@@ -140,7 +139,7 @@ for query_name in "${QUERIES[@]}"; do
     declare -a gpu_times=()
     declare -a cpu_times=()
 
-    for i in 1 2 3; do
+    for _iter in 1 2 3; do
         gpu_ms=$(run_query "${query_name}" "gpu")
         cpu_ms=$(run_query "${query_name}" "cpu")
         gpu_times+=("${gpu_ms}")

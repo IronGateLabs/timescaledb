@@ -88,8 +88,8 @@ gpu_expr_is_eligible(Expr *expr)
 			ListCell *lc;
 			foreach (lc, agg->args)
 			{
-				TargetEntry *te = (TargetEntry *) lfirst(lc);
-				if (!gpu_expr_is_eligible(te->expr))
+				TargetEntry *tle = (TargetEntry *) lfirst(lc);
+				if (!gpu_expr_is_eligible(tle->expr))
 					return false;
 			}
 
