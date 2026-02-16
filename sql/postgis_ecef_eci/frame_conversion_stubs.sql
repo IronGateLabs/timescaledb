@@ -21,6 +21,25 @@
 -- Seconds per sidereal day ≈ 86164.0905
 
 -- =============================================================================
+-- Helper: Simplified GMST angle from epoch
+-- =============================================================================
+-- Computes Greenwich Mean Sidereal Time angle (radians) using only Earth
+-- rotation rate. Shared by the ECEF<->ECI stub functions to avoid duplicating
+-- the CTE pattern.
+
+CREATE OR REPLACE FUNCTION ecef_eci._gmst_rad(epoch TIMESTAMPTZ)
+RETURNS FLOAT8
+LANGUAGE SQL
+STABLE
+PARALLEL SAFE
+SET search_path = ecef_eci, pg_catalog, public
+AS $$
+    -- Simplified: omega_e * seconds since J2000 epoch
+    -- J2000 = 2000-01-01T12:00:00 TT ≈ 2000-01-01T11:58:55.816 UTC
+    SELECT 7.2921150e-5 * EXTRACT(EPOCH FROM epoch - '2000-01-01 11:58:55.816+00'::timestamptz)
+$$;
+
+-- =============================================================================
 -- Stub: ECEF to ECI (J2000) — simplified rotation only
 -- =============================================================================
 -- Applies a Z-axis rotation by the Greenwich Mean Sidereal Time angle.
@@ -38,24 +57,11 @@ STABLE
 PARALLEL SAFE
 SET search_path = ecef_eci, pg_catalog, public
 AS $$
-    WITH params AS (
-        SELECT
-            -- Seconds since J2000 epoch (2000-01-12T12:00:00 TT ≈ 2000-01-01T11:58:55.816 UTC)
-            EXTRACT(EPOCH FROM epoch - '2000-01-01 11:58:55.816+00'::timestamptz) AS t_sec,
-            -- Earth rotation rate (rad/s)
-            7.2921150e-5 AS omega_e
-    ),
-    rotation AS (
-        SELECT
-            -- Greenwich Mean Sidereal Time angle (simplified: just rotation rate * time)
-            (p.omega_e * p.t_sec) AS gmst_rad
-        FROM params p
-    )
     SELECT
-        ecef_x * cos(r.gmst_rad) - ecef_y * sin(r.gmst_rad) AS eci_x,
-        ecef_x * sin(r.gmst_rad) + ecef_y * cos(r.gmst_rad) AS eci_y,
-        ecef_z                                                 AS eci_z
-    FROM rotation r
+        ecef_x * cos(g) - ecef_y * sin(g) AS eci_x,
+        ecef_x * sin(g) + ecef_y * cos(g) AS eci_y,
+        ecef_z                              AS eci_z
+    FROM ecef_eci._gmst_rad(epoch) AS g
 $$;
 
 COMMENT ON FUNCTION ecef_eci.stub_ecef_to_eci(FLOAT8, FLOAT8, FLOAT8, TIMESTAMPTZ)
@@ -76,20 +82,11 @@ STABLE
 PARALLEL SAFE
 SET search_path = ecef_eci, pg_catalog, public
 AS $$
-    WITH params AS (
-        SELECT
-            EXTRACT(EPOCH FROM epoch - '2000-01-01 11:58:55.816+00'::timestamptz) AS t_sec,
-            7.2921150e-5 AS omega_e
-    ),
-    rotation AS (
-        SELECT (p.omega_e * p.t_sec) AS gmst_rad
-        FROM params p
-    )
     SELECT
-        eci_x * cos(r.gmst_rad) + eci_y * sin(r.gmst_rad) AS ecef_x,
-       -eci_x * sin(r.gmst_rad) + eci_y * cos(r.gmst_rad) AS ecef_y,
-        eci_z                                                AS ecef_z
-    FROM rotation r
+        eci_x * cos(g) + eci_y * sin(g) AS ecef_x,
+       -eci_x * sin(g) + eci_y * cos(g) AS ecef_y,
+        eci_z                             AS ecef_z
+    FROM ecef_eci._gmst_rad(epoch) AS g
 $$;
 
 COMMENT ON FUNCTION ecef_eci.stub_eci_to_ecef(FLOAT8, FLOAT8, FLOAT8, TIMESTAMPTZ)
