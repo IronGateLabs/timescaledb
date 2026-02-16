@@ -1,0 +1,4 @@
+comment = 'Bridge module connecting TimescaleDB VectorAgg with PG-Strom GPU execution'
+default_version = '1.0'
+module_pathname = '$libdir/timescaledb_gpu_bridge'
+relocatable = true
