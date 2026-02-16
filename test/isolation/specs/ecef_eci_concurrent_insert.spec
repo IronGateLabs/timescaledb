@@ -1,3 +1,7 @@
+# This file and its contents are licensed under the Apache License 2.0.
+# Please see the included NOTICE for copyright information and
+# LICENSE-APACHE for a copy of the license.
+
 # Isolation test: Concurrent trajectory inserts into same and different spatial buckets
 # Verifies that two sessions can insert trajectory data simultaneously without
 # deadlocks or data corruption.

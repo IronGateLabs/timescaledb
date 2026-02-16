@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# This file and its contents are licensed under the Apache License 2.0.
+# Please see the included NOTICE for copyright information and
+# LICENSE-APACHE for a copy of the license.
+#
 # fetch_iers_eop.sh — Download IERS Bulletin A (finals2000A.all) for EOP refresh
 #
 # Usage:
@@ -43,6 +47,7 @@ if [ ! -w "$OUTPUT_DIR" ]; then
 fi
 
 # --- Cleanup on exit ---
+# shellcheck disable=SC2317  # Called via trap
 cleanup() {
     rm -f "$TMP_FILE"
 }
