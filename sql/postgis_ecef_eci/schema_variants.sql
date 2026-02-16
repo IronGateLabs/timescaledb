@@ -15,6 +15,27 @@
 --   - Query latency for common patterns
 --   - Storage footprint
 
+-- Helper: configure hypertable with spatial partitioning and compression.
+-- Shared by all schema variants to avoid duplicating the setup boilerplate.
+CREATE OR REPLACE FUNCTION ecef_eci._setup_trajectory_hypertable(
+    p_table REGCLASS
+) RETURNS void
+LANGUAGE plpgsql
+SET search_path = ecef_eci, pg_catalog, public
+AS $$
+BEGIN
+    PERFORM create_hypertable(p_table, 'time',
+        chunk_time_interval => INTERVAL '1 hour',
+        if_not_exists => TRUE);
+    PERFORM add_dimension(p_table, 'spatial_bucket',
+        number_partitions => 16, if_not_exists => TRUE);
+    EXECUTE format(
+        'ALTER TABLE %s SET (timescaledb.compress, '
+        'timescaledb.compress_segmentby = ''object_id'', '
+        'timescaledb.compress_orderby = ''time ASC'')', p_table);
+END;
+$$;
+
 -- =============================================================================
 -- Approach B: Floats Only (No Geometry Column)
 -- =============================================================================
@@ -44,25 +65,10 @@ CREATE TABLE IF NOT EXISTS ecef_eci.trajectories_b (
     spatial_bucket  SMALLINT        NOT NULL
 );
 
-SELECT create_hypertable(
-    'ecef_eci.trajectories_b', 'time',
-    chunk_time_interval => INTERVAL '1 hour',
-    if_not_exists => TRUE
-);
-
-SELECT add_dimension(
-    'ecef_eci.trajectories_b', 'spatial_bucket',
-    number_partitions => 16, if_not_exists => TRUE
-);
+SELECT ecef_eci._setup_trajectory_hypertable('ecef_eci.trajectories_b');
 
 CREATE INDEX IF NOT EXISTS idx_traj_b_object_time
     ON ecef_eci.trajectories_b (object_id, time DESC);
-
-ALTER TABLE ecef_eci.trajectories_b SET (
-    timescaledb.compress,
-    timescaledb.compress_segmentby = 'object_id',
-    timescaledb.compress_orderby = 'time ASC'
-);
 
 -- Geometry reconstruction helper for Approach B
 CREATE OR REPLACE FUNCTION ecef_eci.make_ecef_point(x FLOAT8, y FLOAT8, z FLOAT8)
@@ -104,16 +110,7 @@ CREATE TABLE IF NOT EXISTS ecef_eci.trajectories_c (
     spatial_bucket  SMALLINT        NOT NULL
 );
 
-SELECT create_hypertable(
-    'ecef_eci.trajectories_c', 'time',
-    chunk_time_interval => INTERVAL '1 hour',
-    if_not_exists => TRUE
-);
-
-SELECT add_dimension(
-    'ecef_eci.trajectories_c', 'spatial_bucket',
-    number_partitions => 16, if_not_exists => TRUE
-);
+SELECT ecef_eci._setup_trajectory_hypertable('ecef_eci.trajectories_c');
 
 -- GiST 3D index — the advantage of storing geometry
 CREATE INDEX IF NOT EXISTS idx_traj_c_pos_gist
@@ -121,12 +118,6 @@ CREATE INDEX IF NOT EXISTS idx_traj_c_pos_gist
 
 CREATE INDEX IF NOT EXISTS idx_traj_c_object_time
     ON ecef_eci.trajectories_c (object_id, time DESC);
-
-ALTER TABLE ecef_eci.trajectories_c SET (
-    timescaledb.compress,
-    timescaledb.compress_segmentby = 'object_id',
-    timescaledb.compress_orderby = 'time ASC'
-);
 
 -- =============================================================================
 -- Benchmark Helper: Load same data into all three approaches
