@@ -22,7 +22,7 @@ services:
         postgis-src: ../../../postgis
     # No persistent volumes needed — tests are ephemeral
     tmpfs:
-      - /var/lib/postgresql/data:size=512m
+      - /var/lib/postgresql/data:size=512m,uid=999,gid=999
     environment:
       # Suppress TimescaleDB telemetry in test container
       TIMESCALEDB_TELEMETRY: "off"

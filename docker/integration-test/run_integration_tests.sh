@@ -34,9 +34,8 @@ echo ""
 # -- Initialize PostgreSQL --
 echo -e "${YELLOW}[init]${NC} Initializing PostgreSQL..."
 mkdir -p "$PGDATA" /var/log/postgresql
-chown -R postgres:postgres "$PGDATA" /var/log/postgresql
 
-gosu postgres initdb -D "$PGDATA" --auth=trust --no-locale --encoding=UTF8 > /dev/null
+initdb -D "$PGDATA" --auth=trust --no-locale --encoding=UTF8 > /dev/null
 
 # Configure PostgreSQL for TimescaleDB
 cat >> "$PGDATA/postgresql.conf" <<PGCONF
@@ -47,12 +46,12 @@ max_connections = 20
 PGCONF
 
 # Start PostgreSQL
-gosu postgres pg_ctl -D "$PGDATA" -l "$PGLOG" -w start > /dev/null
+pg_ctl -D "$PGDATA" -l "$PGLOG" -w start > /dev/null
 echo -e "${GREEN}[init]${NC} PostgreSQL started."
 
 # Verify extensions are loadable
 echo -e "${YELLOW}[init]${NC} Checking installed extensions..."
-gosu postgres psql -t -A -c \
+psql -t -A -c \
     "SELECT name, default_version FROM pg_available_extensions
      WHERE name IN ('timescaledb', 'postgis', 'postgis_ecef_eci')
      ORDER BY name;" 2>/dev/null || true
@@ -83,8 +82,8 @@ report_skip() {
 # §7.1: Extension load order — PostGIS first
 # ============================================================
 echo -e "${BOLD}--- §7.1: Extension load order (PostGIS first) ---${NC}"
-gosu postgres createdb test_order1
-if gosu postgres psql -q -d test_order1 \
+createdb test_order1
+if psql -q -d test_order1 \
     -c "CREATE EXTENSION postgis;" \
     -c "CREATE EXTENSION postgis_ecef_eci;" \
     -c "CREATE EXTENSION timescaledb CASCADE;" 2>&1; then
@@ -92,14 +91,14 @@ if gosu postgres psql -q -d test_order1 \
 else
     report_fail "CREATE EXTENSION postgis -> postgis_ecef_eci -> timescaledb"
 fi
-gosu postgres dropdb --if-exists test_order1
+dropdb --if-exists test_order1
 
 # ============================================================
 # §7.2: Extension load order — TimescaleDB first
 # ============================================================
 echo -e "${BOLD}--- §7.2: Extension load order (TimescaleDB first) ---${NC}"
-gosu postgres createdb test_order2
-if gosu postgres psql -q -d test_order2 \
+createdb test_order2
+if psql -q -d test_order2 \
     -c "CREATE EXTENSION timescaledb;" \
     -c "CREATE EXTENSION postgis;" \
     -c "CREATE EXTENSION postgis_ecef_eci;" 2>&1; then
@@ -107,7 +106,7 @@ if gosu postgres psql -q -d test_order2 \
 else
     report_fail "CREATE EXTENSION timescaledb -> postgis -> postgis_ecef_eci"
 fi
-gosu postgres dropdb --if-exists test_order2
+dropdb --if-exists test_order2
 
 # ============================================================
 # §7.3-7.9 + EOP: Main integration tests
@@ -116,8 +115,8 @@ echo ""
 echo -e "${BOLD}--- §7.3-7.9 + EOP: Main integration tests ---${NC}"
 
 # Create integration test database with all extensions
-gosu postgres createdb "$TEST_DB"
-gosu postgres psql -q -d "$TEST_DB" \
+createdb "$TEST_DB"
+psql -q -d "$TEST_DB" \
     -c "CREATE EXTENSION timescaledb;" \
     -c "CREATE EXTENSION postgis;" \
     -c "CREATE EXTENSION postgis_ecef_eci;"
@@ -125,7 +124,7 @@ gosu postgres psql -q -d "$TEST_DB" \
 # Create ecef_eci schema for TimescaleDB artifacts
 # (The postgis_ecef_eci extension installs into public; our TimescaleDB-side
 #  objects like eop_data, partitioning functions go into a separate schema.)
-gosu postgres psql -q -d "$TEST_DB" \
+psql -q -d "$TEST_DB" \
     -c "CREATE SCHEMA IF NOT EXISTS ecef_eci;"
 
 # Load TimescaleDB SQL artifacts (order matters for dependencies)
@@ -137,14 +136,14 @@ for f in \
 ; do
     if [ -f "$f" ]; then
         echo "  Loading: $(basename "$f")"
-        gosu postgres psql -q -d "$TEST_DB" -f "$f" 2>&1 | grep -v "^NOTICE:" || true
+        psql -q -d "$TEST_DB" -f "$f" 2>&1 | grep -v "^NOTICE:" || true
     fi
 done
 echo ""
 
 # Run the SQL integration tests
 echo -e "${YELLOW}[test]${NC} Running SQL integration tests..."
-gosu postgres psql -d "$TEST_DB" -f "$INTEGRATION_SQL" 2>&1 | \
+psql -d "$TEST_DB" -f "$INTEGRATION_SQL" 2>&1 | \
     grep -E "^(NOTICE|ERROR|WARNING)" | \
     sed 's/^NOTICE:  //' || true
 
@@ -171,7 +170,7 @@ while IFS='|' read -r test_id description status detail; do
             report_skip "§$test_id: $description"
             ;;
     esac
-done < <(gosu postgres psql -d "$TEST_DB" -t -A \
+done < <(psql -d "$TEST_DB" -t -A \
     -c "SELECT test_id, description, status, COALESCE(detail, '') FROM _test_results ORDER BY test_id;")
 
 # ============================================================
@@ -182,13 +181,13 @@ echo -e "${BOLD}--- §7.12: pg_dump / pg_restore cycle ---${NC}"
 DUMP_FILE=/tmp/integration_dump.sql
 RESTORE_DB=ecef_eci_restored
 
-if gosu postgres pg_dump "$TEST_DB" > "$DUMP_FILE" 2>/dev/null; then
-    gosu postgres createdb "$RESTORE_DB"
+if pg_dump "$TEST_DB" > "$DUMP_FILE" 2>/dev/null; then
+    createdb "$RESTORE_DB"
 
     # Restore — some NOTICE messages are expected
-    if gosu postgres psql -q -d "$RESTORE_DB" -f "$DUMP_FILE" > /dev/null 2>&1; then
+    if psql -q -d "$RESTORE_DB" -f "$DUMP_FILE" > /dev/null 2>&1; then
         # Verify data survived the roundtrip
-        restored_count=$(gosu postgres psql -d "$RESTORE_DB" -t -A \
+        restored_count=$(psql -d "$RESTORE_DB" -t -A \
             -c "SELECT count(*) FROM test_ecef;" 2>/dev/null || echo "0")
         restored_count=$(echo "$restored_count" | xargs)
 
@@ -201,7 +200,7 @@ if gosu postgres pg_dump "$TEST_DB" > "$DUMP_FILE" 2>/dev/null; then
         report_fail "pg_dump/pg_restore cycle" "psql restore failed"
     fi
 
-    gosu postgres dropdb --if-exists "$RESTORE_DB"
+    dropdb --if-exists "$RESTORE_DB"
     rm -f "$DUMP_FILE"
 else
     report_fail "pg_dump/pg_restore cycle" "pg_dump failed"
@@ -228,7 +227,7 @@ echo -e "  ${YELLOW}SKIP${NC}: $skip_count"
 echo ""
 
 # Shutdown PostgreSQL
-gosu postgres pg_ctl -D "$PGDATA" -m fast stop > /dev/null 2>&1 || true
+pg_ctl -D "$PGDATA" -m fast stop > /dev/null 2>&1 || true
 
 if [ "$fail_count" -gt 0 ]; then
     echo -e "${RED}FAILED: $fail_count test(s) failed.${NC}"

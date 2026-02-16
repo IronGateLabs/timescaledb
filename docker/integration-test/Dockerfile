@@ -88,6 +88,10 @@ RUN chmod +x /test/run_integration_tests.sh
 # ---- Clean up build artifacts to reduce image size ----
 RUN rm -rf /build
 
+# Pre-create directories with postgres ownership so the non-root user can write
+RUN mkdir -p /var/lib/postgresql/data /var/log/postgresql \
+    && chown -R postgres:postgres /var/lib/postgresql/data /var/log/postgresql /test
+
 # Run as non-root user (postgres is provided by the base image)
 USER postgres
 
