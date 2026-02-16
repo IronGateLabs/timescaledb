@@ -3,7 +3,7 @@
 ## Purpose
 
 This file defines the formal interface between the TimescaleDB integration work
-(this repo) and the PostGIS ECEF/ECI fork (`montge/postgis`). It is the single
+(this repo) and the PostGIS ECEF/ECI fork (`IronGateLabs/postgis`). It is the single
 source of truth for what each side needs from and provides to the other.
 
 **Both repos should contain a copy of this contract.** When the contract changes,

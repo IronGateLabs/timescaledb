@@ -11,14 +11,14 @@ reference frames.
 
 This project spans multiple repositories, each with its own Claude development branch:
 
-### montge/timescaledb (THIS REPO)
+### IronGateLabs/timescaledb (THIS REPO)
 - **Role**: Consumer of PostGIS spatial types; provides time-series storage, chunking,
   compression, continuous aggregates, and background job scheduling
 - **Branch**: `claude/openspec-postgis-integration-*`
 - **Specs**: Schema design, compression tuning, continuous aggregate templates,
   index strategy, extension compatibility
 
-### montge/postgis (EXTERNAL)
+### IronGateLabs/postgis (EXTERNAL)
 - **Role**: Provider of ECEF/ECI types, SRIDs, frame conversion functions, spatial
   operators, Earth Orientation Parameter management
 - **Branch**: TBD — `claude/ecef-eci-*` (expected)
@@ -36,7 +36,7 @@ Since OpenSpec is single-repo, cross-repo coordination uses:
    so any Claude session working on either repo has full context.
 
 3. **GitHub Cross-References**: Commits and PRs reference the other repo's branch/PR
-   using `montge/postgis#<PR>` or `montge/timescaledb#<PR>` syntax.
+   using `IronGateLabs/postgis#<PR>` or `IronGateLabs/timescaledb#<PR>` syntax.
 
 4. **Coordination Tags**: Tasks blocked on the other repo are tagged `[BLOCKED:postgis]`
    or `[BLOCKED:timescaledb]` in `tasks.md`.

@@ -7,7 +7,7 @@ context: |
 
   This is a multi-repo integration:
   - timescaledb (this repo): time-series storage, partitioning, compression, continuous aggregates
-  - postgis fork (montge/postgis): ECEF/ECI types, SRIDs, frame conversions
+  - postgis fork (IronGateLabs/postgis): ECEF/ECI types, SRIDs, frame conversions
 
   The interface contract (interface-contract.md) defines the boundary between repos.
   Any changes to the contract must be coordinated across both repositories.

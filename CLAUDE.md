@@ -2,7 +2,7 @@
 
 ## Project Context
 
-This branch (`claude/openspec-postgis-integration-cIgmI`) coordinates TimescaleDB-side
+This branch (`feature/postgis-ecef-eci-integration`) coordinates TimescaleDB-side
 changes for integrating a PostGIS fork with native ECEF and ECI coordinate system support.
 
 ## Related Repositories
@@ -11,8 +11,8 @@ This is a multi-repo effort. Each repo has its own Claude branch with `.openspec
 
 | Repo | Role | Branch Pattern |
 |------|------|---------------|
-| `montge/timescaledb` (this repo) | Time-series storage, partitioning, compression, continuous aggregates | `claude/openspec-postgis-integration-*` |
-| `montge/postgis` | ECEF/ECI types, SRIDs, frame conversions, spatial operators | `claude/ecef-eci-*` (expected) |
+| `IronGateLabs/timescaledb` (this repo) | Time-series storage, partitioning, compression, continuous aggregates | `feature/postgis-ecef-eci-integration` |
+| `IronGateLabs/postgis` | ECEF/ECI types, SRIDs, frame conversions, spatial operators | `develop` |
 
 ## Cross-Repo Interface Contract
 
