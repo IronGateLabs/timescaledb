@@ -375,9 +375,11 @@ BEGIN
         RETURN -1;
     END IF;
 
-    -- Sync: INSERT from eop_data into postgis_eop, upsert on conflict
+    -- Sync: INSERT from eop_data into postgis_eop, upsert on conflict.
+    -- Unit conversion: ecef_eci.eop_data stores xp/yp in arcseconds (IERS convention),
+    -- but postgis_eop stores xp/yp in degrees. Convert: deg = arcsec / 3600.
     INSERT INTO public.postgis_eop (mjd, xp, yp, dut1, dx, dy)
-    SELECT mjd, xp, yp, dut1, dx, dy
+    SELECT mjd, xp / 3600.0, yp / 3600.0, dut1, dx, dy
     FROM ecef_eci.eop_data
     ON CONFLICT (mjd) DO UPDATE SET
         xp   = EXCLUDED.xp,
