@@ -1,0 +1,28 @@
+# PostGIS ECEF/ECI + TimescaleDB Integration Test
+#
+# Usage:
+#   cd docker/integration-test
+#   docker compose up --build
+#
+# Requires:
+#   - Docker Engine >= 20.10 with BuildKit
+#   - PostGIS fork source at ../../../postgis (sibling of timescaledb repo)
+#
+# The container runs all §7 integration tests and exits with code 0 on
+# success or 1 on failure.
+
+services:
+  integration-test:
+    build:
+      # Build context = timescaledb repo root (for sql/ and docker/ files)
+      context: ../..
+      dockerfile: docker/integration-test/Dockerfile
+      # Named build context for PostGIS source (sibling repo)
+      additional_contexts:
+        postgis-src: ../../../postgis
+    # No persistent volumes needed — tests are ephemeral
+    tmpfs:
+      - /var/lib/postgresql/data:size=512m
+    environment:
+      # Suppress TimescaleDB telemetry in test container
+      TIMESCALEDB_TELEMETRY: "off"
