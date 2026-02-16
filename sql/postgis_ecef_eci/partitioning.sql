@@ -1,0 +1,206 @@
+-- This file and its contents are licensed under the Apache License 2.0.
+-- Please see the included NOTICE for copyright information and
+-- LICENSE-APACHE for a copy of the license.
+
+-- PostGIS ECEF/ECI Integration for TimescaleDB
+-- Spatial partitioning functions for ECEF coordinate data
+--
+-- These functions map 3D ECEF coordinates to 1D partition buckets
+-- for use as a TimescaleDB closed dimension.
+
+-- =============================================================================
+-- Option A: Altitude-Band Bucketing
+-- =============================================================================
+-- Partitions by orbital regime / altitude above WGS84 ellipsoid.
+-- 16 buckets covering sub-orbital through HEO.
+--
+-- Bucket Layout:
+--   0-3:   LEO    (0-2000 km)      4 sub-bands by 500 km
+--   4-7:   MEO    (2000-35786 km)  4 sub-bands
+--   8-11:  GEO    (35786 +/- 200 km) 4 sub-bands by longitude quadrant
+--   12-14: HEO    (>35986 km)      3 sub-bands
+--   15:    Sub-orbital / terrestrial / invalid
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION ecef_eci.altitude_band_bucket(
+    x FLOAT8,
+    y FLOAT8,
+    z FLOAT8
+) RETURNS INT
+LANGUAGE SQL
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = ecef_eci, pg_catalog, public
+AS $$
+    SELECT CASE
+        -- Sub-orbital / terrestrial / inside Earth
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 0
+            THEN 15
+
+        -- LEO: 0-500 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 500
+            THEN 0
+        -- LEO: 500-1000 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 1000
+            THEN 1
+        -- LEO: 1000-1500 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 1500
+            THEN 2
+        -- LEO: 1500-2000 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 2000
+            THEN 3
+
+        -- MEO: 2000-10000 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 10000
+            THEN 4
+        -- MEO: 10000-20000 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 20000
+            THEN 5
+        -- MEO: 20000-30000 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 30000
+            THEN 6
+        -- MEO: 30000-35786 km (below GEO)
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 35786
+            THEN 7
+
+        -- GEO belt: 35786 +/- 200 km, split by longitude quadrant
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 35986
+            THEN 8 + (CASE
+                WHEN atan2(y, x) >= 0 AND atan2(y, x) < pi()/2 THEN 0
+                WHEN atan2(y, x) >= pi()/2 THEN 1
+                WHEN atan2(y, x) >= -pi()/2 AND atan2(y, x) < 0 THEN 2
+                ELSE 3
+            END)
+
+        -- HEO: 35986-50000 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 50000
+            THEN 12
+        -- HEO: 50000-100000 km
+        WHEN sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0 < 100000
+            THEN 13
+        -- HEO: >100000 km
+        ELSE 14
+    END
+$$;
+
+COMMENT ON FUNCTION ecef_eci.altitude_band_bucket(FLOAT8, FLOAT8, FLOAT8)
+IS 'Maps ECEF coordinates (meters) to a spatial partition bucket (0-15) based on altitude band above WGS84 ellipsoid';
+
+-- =============================================================================
+-- Helper: Compute altitude in km from ECEF coordinates in meters
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION ecef_eci.ecef_altitude_km(
+    x FLOAT8,
+    y FLOAT8,
+    z FLOAT8
+) RETURNS FLOAT8
+LANGUAGE SQL
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = ecef_eci, pg_catalog, public
+AS $$
+    SELECT sqrt(x*x + y*y + z*z) / 1000.0 - 6371.0
+$$;
+
+COMMENT ON FUNCTION ecef_eci.ecef_altitude_km(FLOAT8, FLOAT8, FLOAT8)
+IS 'Computes approximate altitude (km) above WGS84 mean radius from ECEF coordinates (meters)';
+
+-- =============================================================================
+-- Helper: Altitude band label for human-readable output
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION ecef_eci.altitude_band_label(bucket INT)
+RETURNS TEXT
+LANGUAGE SQL
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = ecef_eci, pg_catalog, public
+AS $$
+    SELECT CASE bucket
+        WHEN 0  THEN 'LEO 0-500km'
+        WHEN 1  THEN 'LEO 500-1000km'
+        WHEN 2  THEN 'LEO 1000-1500km'
+        WHEN 3  THEN 'LEO 1500-2000km'
+        WHEN 4  THEN 'MEO 2000-10000km'
+        WHEN 5  THEN 'MEO 10000-20000km'
+        WHEN 6  THEN 'MEO 20000-30000km'
+        WHEN 7  THEN 'MEO 30000-GEO'
+        WHEN 8  THEN 'GEO Q1 (0-90E)'
+        WHEN 9  THEN 'GEO Q2 (90E-180E)'
+        WHEN 10 THEN 'GEO Q3 (180W-90W)'
+        WHEN 11 THEN 'GEO Q4 (90W-0)'
+        WHEN 12 THEN 'HEO 36000-50000km'
+        WHEN 13 THEN 'HEO 50000-100000km'
+        WHEN 14 THEN 'HEO >100000km'
+        WHEN 15 THEN 'Sub-orbital/Terrestrial'
+        ELSE 'Unknown'
+    END
+$$;
+
+COMMENT ON FUNCTION ecef_eci.altitude_band_label(INT)
+IS 'Returns human-readable label for a spatial partition bucket number';
+
+-- =============================================================================
+-- Option B: Octree Bucketing
+-- =============================================================================
+-- Recursively divides a bounding cube around Earth into octants.
+-- Each ECEF point is assigned to an octant at a configurable depth,
+-- then mapped to a bucket in [0, num_buckets).
+--
+-- Compared to altitude-band:
+--   + Spatially balanced across all 3 axes (not just radial)
+--   + Better for queries like "objects near this ECEF point"
+--   - Does not align with natural orbital regime boundaries
+--   - Slightly more computation per row
+--
+-- The bounding cube is centered at the origin with half-edge = max_radius_m.
+-- Default max_radius_m = 50,000 km covers up to HEO.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION ecef_eci.octree_bucket(
+    x FLOAT8,
+    y FLOAT8,
+    z FLOAT8,
+    num_buckets INT DEFAULT 16,
+    max_radius_m FLOAT8 DEFAULT 50000000.0  -- 50,000 km
+) RETURNS INT
+LANGUAGE SQL
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = ecef_eci, pg_catalog, public
+AS $$
+    -- Octree works by building a cell ID from successive octant choices.
+    -- At each level, we split the cube along X, Y, Z midpoints.
+    -- The 3-bit octant index at each level: bit0=X>mid, bit1=Y>mid, bit2=Z>mid.
+    -- We do ceil(log8(num_buckets)) levels, then modulo to num_buckets.
+    --
+    -- For 16 buckets: We need 2 levels of octree (8^2 = 64 cells) mod 16.
+    -- For 8 buckets: 1 level (8 cells) maps directly.
+
+    WITH octant_l1 AS (
+        -- Level 1: split the bounding cube at origin
+        SELECT
+            (CASE WHEN x >= 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN y >= 0 THEN 2 ELSE 0 END) +
+            (CASE WHEN z >= 0 THEN 4 ELSE 0 END) AS oct1,
+            -- Midpoints for level 2
+            (CASE WHEN x >= 0 THEN max_radius_m/2.0 ELSE -max_radius_m/2.0 END) AS mx,
+            (CASE WHEN y >= 0 THEN max_radius_m/2.0 ELSE -max_radius_m/2.0 END) AS my,
+            (CASE WHEN z >= 0 THEN max_radius_m/2.0 ELSE -max_radius_m/2.0 END) AS mz
+    ),
+    octant_l2 AS (
+        -- Level 2: split each L1 octant at its midpoint
+        SELECT
+            o.oct1,
+            (CASE WHEN x >= o.mx THEN 1 ELSE 0 END) +
+            (CASE WHEN y >= o.my THEN 2 ELSE 0 END) +
+            (CASE WHEN z >= o.mz THEN 4 ELSE 0 END) AS oct2
+        FROM octant_l1 o
+    )
+    SELECT ((o.oct1 * 8 + o.oct2) % num_buckets)::INT
+    FROM octant_l2 o
+$$;
+
+COMMENT ON FUNCTION ecef_eci.octree_bucket(FLOAT8, FLOAT8, FLOAT8, INT, FLOAT8)
+IS 'Maps ECEF coordinates to a partition bucket using 2-level octree spatial subdivision. Alternative to altitude_band_bucket for spatially uniform partitioning.';

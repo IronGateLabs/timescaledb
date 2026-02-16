@@ -6,7 +6,9 @@ set(TEST_FILES
     read_uncommitted_insert.spec
     repeatable_read_insert.spec
     serializable_insert_rollback.spec
-    serializable_insert.spec)
+    serializable_insert.spec
+    ecef_eci_concurrent_insert.spec
+    ecef_eci_insert_compress.spec)
 
 file(REMOVE ${ISOLATION_TEST_SCHEDULE})
 

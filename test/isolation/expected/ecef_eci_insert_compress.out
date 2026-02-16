@@ -1,0 +1,35 @@
+Parsed test spec with 2 sessions
+
+starting permutation: compress insert_new_chunk compressor_commit inserter_commit
+step compress:
+    SELECT compress_chunk(c) FROM show_chunks('ecef_eci.trajectories') c;
+
+compress_chunk
+------------------------------------------------------
+_timescaledb_internal._compressed_hypertable_2_1_chunk
+(1 row)
+
+step insert_new_chunk:
+    -- Insert into a DIFFERENT time range (hour 1) while hour 0 is being compressed
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 01:00:00+00', 2, 6771000.0, 100.0, 0.0, 400.0, 0);
+
+step compressor_commit: COMMIT;
+step inserter_commit: COMMIT;
+
+starting permutation: compress insert_same_chunk compressor_commit inserter_commit
+step compress:
+    SELECT compress_chunk(c) FROM show_chunks('ecef_eci.trajectories') c;
+
+compress_chunk
+------------------------------------------------------
+_timescaledb_internal._compressed_hypertable_2_1_chunk
+(1 row)
+
+step insert_same_chunk:
+    -- Insert into the SAME chunk that is being compressed
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:30:00+00', 3, 6771000.0, 200.0, 0.0, 400.0, 0);
+
+step compressor_commit: COMMIT;
+step inserter_commit: COMMIT;
