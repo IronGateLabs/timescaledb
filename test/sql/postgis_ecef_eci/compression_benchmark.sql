@@ -1,3 +1,7 @@
+-- This file and its contents are licensed under the Apache License 2.0.
+-- Please see the included NOTICE for copyright information and
+-- LICENSE-APACHE for a copy of the license.
+
 -- Test: Compression benchmark across schema approaches
 -- Compares Approach A (geometry + floats), B (floats only), C (geometry only)
 

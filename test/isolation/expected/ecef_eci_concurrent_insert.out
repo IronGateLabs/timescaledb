@@ -1,0 +1,45 @@
+Parsed test spec with 2 sessions
+
+starting permutation: s1_insert_leo s2_insert_leo s1_commit s2_commit
+step s1_insert_leo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 1, 6771000.0, 0.0, 0.0, 400.0, 0);
+
+step s2_insert_leo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 3, 6771000.0, 100.0, 0.0, 400.0, 0);
+
+step s1_commit: COMMIT;
+step s2_commit: COMMIT;
+
+starting permutation: s1_insert_leo s2_insert_meo s1_commit s2_commit
+step s1_insert_leo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 1, 6771000.0, 0.0, 0.0, 400.0, 0);
+
+step s2_insert_meo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 4, 26571000.0, 100.0, 0.0, 20200.0, 1);
+
+step s1_commit: COMMIT;
+step s2_commit: COMMIT;
+
+starting permutation: s1_insert_leo s2_insert_leo s1_insert_meo s2_insert_meo s1_commit s2_commit
+step s1_insert_leo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 1, 6771000.0, 0.0, 0.0, 400.0, 0);
+
+step s2_insert_leo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 3, 6771000.0, 100.0, 0.0, 400.0, 0);
+
+step s1_insert_meo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 2, 26571000.0, 0.0, 0.0, 20200.0, 1);
+
+step s2_insert_meo:
+    INSERT INTO ecef_eci.trajectories (time, object_id, x, y, z, altitude_km, spatial_bucket)
+    VALUES ('2025-01-01 00:00:00+00', 4, 26571000.0, 100.0, 0.0, 20200.0, 1);
+
+step s1_commit: COMMIT;
+step s2_commit: COMMIT;

@@ -1,3 +1,7 @@
+-- This file and its contents are licensed under the Apache License 2.0.
+-- Please see the included NOTICE for copyright information and
+-- LICENSE-APACHE for a copy of the license.
+
 -- Unit Tests: Partitioning functions — comprehensive boundary coverage
 -- Tests every CASE branch in altitude_band_bucket() and octree_bucket()
 
